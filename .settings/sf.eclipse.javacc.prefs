@@ -1,0 +1,9 @@
+#Mon Jun 30 21:10:40 CST 2014
+CLEAR_CONSOLE=false
+JJ_NATURE=true
+JTB_OPTIONS=-p\=parser
+RUNTIME_JAR=-intern-
+RUNTIME_JTBJAR=-intern-
+SHOW_CONSOLE=true
+SUPPRESS_WARNINGS=true
+eclipse.preferences.version=1

@@ -1,0 +1,1267 @@
+/**
+ * JavaCC file
+ */
+ 
+options {
+  JDK_VERSION = "1.5";
+  static=false;
+}
+PARSER_BEGIN(Compiler)
+package parser;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator; 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
+import util.Word;
+
+public class Compiler {
+	public static int count=0; //四元式标号
+	public static int ncount=0; //临时变量下标
+	public static int con;
+	public static int j=0;
+	public static FileOutputStream foutStream ;
+	public static PrintStream print_Stream;
+	static ArrayList<MyNode> mylist=new ArrayList<MyNode>();//结点集合
+	static ArrayList<QTInfo> mySys=new ArrayList<Sys>(); //四元式
+	static SysList sysList=new SysList(mySys);//四元式链表，用来存储结果
+	static NodeList   myNodeList=new NodeList(mylist);//封装结点集合，对结点进行处理
+/**********************************************
+自定义的类:
+MyNode：存储变量的所有信息  
+NodeList：符号表
+Sys:四元式 
+Syslist：四元式列表
+Word：单词，封装name kind信息 ，用于词法分析  
+Record：封装name、value信息，在语义分析过程中作为临时变量使用
+***********************************************/
+
+  public static void main(String args[]) throws Exception {
+  	WordAnalysis(); 	//词法分析
+  	System.out.println("Output WordAnalysis to WordAnalysis.txt");
+    //语法分析
+    FileInputStream fileStream;
+	try {		 
+		  fileStream = new FileInputStream(GUI.Compiler.sf);
+		  Compiler parser = new Compiler(fileStream);              
+         try {
+			 SimpleNode n = parser.Start();
+			 n.clearnTxt();
+			 n.dump("");//输出语法树
+			 System.out.println("Output GrammerTree to GrammerTree.txt");
+       		 fileStream.close(); 
+     		 } catch (Exception e) {
+        		System.out.println("NOK.");
+        		System.out.println(e.getMessage());
+        		parser.ReInit(System.in);
+      		 } catch (Error e) {
+        		System.out.println("Oops.");
+        		System.out.println(e.getMessage());
+      		}
+	} catch (FileNotFoundException e1) {	
+		e1.printStackTrace();
+	}
+    SysTable();//调用输出四元式表
+    System.out.println("Output SysTable to Systable.txt");
+    SymbolTable();//调用输出符号表  
+    System.out.println("Output SymboTable to SymboTable.txt");
+  }
+  
+//四元式表  
+    public static void SysTable()
+  {
+  	try{
+  	   FileOutputStream out=new FileOutputStream("Systable.txt");
+	   PrintStream sysprint=new PrintStream(out);
+	   //temp：遍历四元式列表并打印
+	   for(Sys temp:sysList.mySysList)
+	   {
+	   	  sysprint.print(temp);	 
+	   }
+	    sysprint.close();
+	   out.close();  	
+  	  }
+  	  catch(IOException e)
+  	  {
+  	  	e.printStackTrace();
+  	  }
+  	  
+  }
+  
+//符号表
+    public static void SymbolTable()  
+  {
+  	  try{
+  	   FileOutputStream out=new FileOutputStream("Symboltable.txt");
+	   PrintStream mynodeprint=new PrintStream(out);
+	   //temp:遍历符号表并打印
+	   for(MyNode temp:myNodeList.mylist)
+	   {
+	   	  mynodeprint.print(temp);	
+	   }
+	   mynodeprint.close();
+	   out.close();  	
+  	  }
+  	  catch(IOException e)
+  	  {
+  	  	e.printStackTrace();
+  	  }
+  }
+  
+//词法分析，输出<单词自身值，单词种别>二元式
+  public static void WordAnalysis()
+  {
+    	try{
+    	SimpleCharStream jj_input_stream=new SimpleCharStream(new FileInputStream(GUI.Compiler.sf));
+		CompilerTokenManager tokenManage=new CompilerTokenManager(jj_input_stream);
+		FileOutputStream out=new FileOutputStream("WordAnalysis.txt");
+		PrintStream wordprint=new PrintStream(out);
+		ArrayList<Word> wordlist=new ArrayList<Word>();
+		while(true)
+		{
+			//读取下一单词
+			Token t=tokenManage.getNextToken();
+			if(t.kind==0)//源文件结束，跳出循环
+			{
+				break;
+			}
+			else
+			{//将单词信息封装在word里存储
+				Word w=new Word();
+				w.setKind(t.kind);
+				w.setName(t.image);
+				wordlist.add(w);
+			}
+		}
+		//遍历，打印二元式
+		for(Word temp:wordlist)
+		{
+			wordprint.print(temp);
+		}
+		wordprint.close();
+		out.close();
+    	}
+    	catch(Exception e)
+    	{
+    		e.printStackTrace();
+    	}	
+		
+  }
+}
+PARSER_END(Compiler)
+
+/********************SKIP和TOKEN（集体）**********************/
+SKIP :
+{
+ 	" "
+|	"\r"
+|	"\t"
+|	"\n"
+|   <"//" (~["\n","\r"])* ("\n" | "\r" | "\r\n")>//单行注释
+|   <"/*" (~["*"])* "*" ("*" | ~["*","/"] (~["*"])* "*")* "/">//多行注释
+}
+TOKEN : /* Keywords */
+{
+	<INCLUDE:"include">
+|   <MAIN:"main"> 
+|  <VOID:"void">
+|  <STATIC:"static">
+|  <CONST:"const">
+|   <IF:"if">  
+|  <ELSEIF:"else if">
+|  <ELSE:"else">
+|  <WHILE:"while">
+|  <DO:"do">
+|  <FOR:"for">
+|  <BREAK:"break">
+|  <CASE:"case">
+|  <CONTINUE:"continue">
+|  <SWITCH:"switch">
+|  <DEFAULT1:"default">
+|  <FLOAT:"float">
+|  <LONG:"long">
+|  <SHORT:"short">
+|  <INT:"int">
+|  <CHAR:"char">
+|  <DOUBLE:"double">
+|  <TYPEDEF:"typedef">
+|  <RETURN:"return">
+|  <SIGNED:"signed">
+|  <UNSIGNED:"unsigned">
+|  <STRUCT:"struct">
+|  <SCANF:"scanf">
+|  <PRINTF:"printf">
+}
+
+TOKEN : /* OPERATORS */
+{
+	< IO: "stdio.h" >
+|	< LIB: "stdlib.h" >
+|	< MATH: "math.h" >
+|	< TIME: "time.h" >
+|	< STRING: "string.h" >
+}
+
+TOKEN : /* Operators */
+{
+	< PLUS: "+" >
+|	< MINUS: "-" >
+|	< MULTIPLY: "*" >
+|	< DIVIDE: "/" >
+|	< REMAINDER:"%" >
+|	< SELFPLUS:"++">
+|	< SELFMINUS:"--">
+|	< ASSIGNMENT:"=" >
+|	< EQUAL:"==" >
+|	< UNEQUAL:"!=" >
+|	< GREAT:">" >
+| 	< LOWER:"<" >
+| 	< GREATE:">=" >
+| 	< LOWERW:"<=" >
+|	< AND :"&&" >
+|	< OR:"||" >
+|	< NOT:"!" >
+}
+TOKEN: /* Bounded operators  */
+{
+  	<LC:"(">
+|	<RC:")">
+|	<LM:"[">
+|	<RM:"]">
+|	<LB:"{">
+|	<RB:"}">
+|	<DOT: ",">
+|	<SEMICOLON : ";">
+|	<QUOTE : "\"">
+|	<COLON : ":">
+}
+
+TOKEN : /* Identifier*/
+{
+	<IDENTIFIER: <LETTER> (<LETTER> | <DIGIT>)*>
+|  	<LETTER: ["$","A"-"Z","_","a"-"z"]>
+}
+
+TOKEN : /* Constants */
+{
+    < CONSTANT: "0"|["1"-"9"] (<DIGIT>)* >
+|   < DIGIT: ["0" - "9"] >
+}
+
+/*************文法开始（集体）*************/
+SimpleNode Start() : {}
+{
+  Procedure() <EOF> {
+  	 return jjtThis; 
+  }
+| <EOF>	    { return jjtThis; }
+}
+
+/*************处理主程序（集体）*************/
+void Procedure():{}
+{
+	( "#" <INCLUDE> "<" Head( )">" )*
+	<VOID> <MAIN> <LC><RC>
+	SentenceBlock()
+}
+
+/***************语句块（集体）**************/
+void SentenceBlock():{}
+{
+	<LB>(Statement())*<RB>
+|	(Statement())*
+}
+
+/***************语句（集体）**************/
+void Statement():{}
+{
+	declaration()    //声明语句
+	|assignment()     //赋值语句
+	|If()    //if条件语句
+	|Switch() //switch条件语句
+	|While()   //while循环语句
+	|do_while() //do_while循环语句
+	|For()   //for循环语句	
+
+
+}
+
+/***********声明语句（岳冠桥）*************/
+ void declaration():
+{
+  String type;//变量类型
+  MyNode tempnode=null;//在符号表建立tempnode节点，存储变量全部信息
+  Token node;//单词
+  String name;//变量名称
+  int D=0;//数组维数
+}
+{
+	type=Type()
+	node=<IDENTIFIER>
+	{
+		name=node.image;
+		//检查标示符是否已定义，若是则报错，退出程序
+		if(myNodeList!=null)
+		{
+			if(myNodeList.isExientence(name))
+			{
+				System.out.println("number "+node.beginLine+"  variable \""+name+"\" already exists,error......");
+				System.exit(-1);
+			}
+		}
+		tempnode=new MyNode(name,type);
+	}
+	("["//若为数组
+	{
+		D++;
+		tempnode.D  = D;
+	}
+	(node=<CONSTANT>
+	 {
+		if(D==1)//若为一维数组，设置行长度
+		{
+			int row=Integer.parseInt(node.image);
+			tempnode.row = row;
+			tempnode.a=new int[row];
+			tempnode.rflag=1;
+		}
+		else if(D==2)//若为二维数组，设置列长度
+		{
+			int col=Integer.parseInt(node.image);
+			tempnode.col = col;
+			tempnode.a=null;
+			tempnode.b=new int[tempnode.row][col];
+			tempnode.cflag=1;
+		}
+	  })?
+	"]")*  
+	(Assign(tempnode))?//赋值语句
+	//将刚读取的变量加入到符号表，并恢复现场
+	{
+		myNodeList.addNode(tempnode);
+		D=0;
+		node=null;
+		tempnode=null;
+		name=null;
+	}
+	
+//读取用","分割的下一变量，流程同上
+	(","node=<IDENTIFIER>
+	{
+		name=node.image;
+		if(myNodeList!=null)
+		{
+			if(myNodeList.isExientence(name))
+			{
+				System.out.println("number "+node.beginLine+"  variable \""+name+"\" already exists!!error......");
+				System.exit(-1);
+			}
+		}
+		tempnode=new MyNode(name,type);
+	}
+	("["
+	    {
+		D++;
+		tempnode.D = D;
+	    }
+	    (node=<CONSTANT>
+	    {
+	    if(D==1)
+		{
+			int row=Integer.parseInt(node.image);
+			tempnode.row = row;
+			tempnode.a=new int[row];       
+			tempnode.rflag=1;
+		}
+		else if(D==2)
+		{
+			int col=Integer.parseInt(node.image);
+			tempnode.col = col;
+			tempnode.a=null;
+			tempnode.b=new int[tempnode.row][col];
+			tempnode.cflag=1;
+		}
+		})?
+	"]")* 
+	(Assign(tempnode))?
+	{
+		myNodeList.addNode(tempnode);
+		D=0;
+		tempnode=null;
+		node=null;
+		name=null;
+	}
+	)*
+	";"
+}
+
+/************跟在声明后的赋值语句（杨帅）************/
+void Assign(MyNode tempnode):
+{
+	Record temp;//临时变量
+	String st;//下标临时标记
+	int value; //变量的值
+	int i=0;
+	int j=0;
+	String lon;
+	int row,col;
+	int nr=0;  
+}
+{
+	"="     //表示赋值开始
+	(
+	temp=Factor()//取数
+	{
+		
+		value=Integer.parseInt(temp.getValue());
+		tempnode.result=value;
+		count++;
+		sysList.addSys(new Sys(count,"=",temp.getName(),"-",tempnode.name)); 
+	}
+	|
+	("{"
+	{
+ArrayList<Integer> list=new ArrayList<Integer>();//用一个//ArrayList<Integer>连续接收后面大括号内的值，待扫描完毕后，再//修改tempnode并生成相应的四元式。
+
+	}
+	(
+	(temp=Factor()
+	{
+	    if(tempnode.rflag==1&&nr>=tempnode.row)
+	    {
+			System.out.println("number "+" Index out of array!! "+tempnode.name+" error......");//行越界报错。
+			System.exit(12);
+	    }
+	    nr++;//如果不报错，则行++
+		value=Integer.parseInt(temp.getValue());
+		list.add(value);
+	}
+	(","temp=Factor()
+	{
+		if(tempnode.rflag==1&&nr>=tempnode.row)
+	    {
+			System.out.println("number "+" Index out of array!! "+tempnode.name+" error......");//越界报错
+			System.exit(12);
+	    }
+	    nr++;
+		value=Integer.parseInt(temp.getValue());
+		list.add(value);
+	}
+	)* 
+	{
+		if(tempnode.rflag==0)//修改定义标记
+		{
+		   tempnode.rflag=1;
+		   tempnode.row = nr;
+		   tempnode.a=new int[nr];
+		}
+		st="T"+(ncount);
+		ncount++;
+		count++;
+		sysList.addSys(new Sys(count,"=",0+"","-",st));
+		Iterator it=list.iterator();//迭代取list里的数放进//tempnode.a数组里。
+		while(it.hasNext())
+		{
+			tempnode.a[i]=(Integer)it.next();
+	     	count++;
+		    sysList.addSys(new Sys(count,"[]=",tempnode.a[i]+"","-",tempnode.name+"["+st+"]"));//存数
+		    i++;
+		    lon=st;
+		    if(it.hasNext())
+		    {
+		    st="T"+(ncount);
+		    ncount++;
+		    count++;
+		    sysList.addSys(new Sys(count,"+",lon,4+"",st));
+		    }
+		}	
+	})
+	|
+	( Array(tempnode,j++,list)(","Array(tempnode,j++,list) //二维数组赋值，调用Array()。
+)*  //二维数组存数是一行一行的存进内存里的
+	{		if(tempnode.rflag==0)
+		{
+			tempnode.rflag=1;
+			tempnode.row = j;
+			tempnode.b=new int [tempnode.row][tempnode.col];
+		}
+		i=0;j=0;int co=0;
+		st="T"+(ncount);
+		ncount++;
+		count++;
+		sysList.addSys(new Sys(count,"=",0+"","-",st));//存数//开始
+		Iterator ait=list.iterator();
+		while(ait.hasNext())
+		{
+			tempnode.b[i][j]=(Integer)ait.next();
+			count++;
+		    sysList.addSys(new Sys(count,"[]=",tempnode.b[i][j]+"","-",tempnode.name+"["+st+"]"));
+		    lon=st;
+		    if(ait.hasNext()){
+		    st="T"+(ncount);
+		    ncount++;
+		    count++;
+		    sysList.addSys(new Sys(count,"+",lon,4+"",st));
+		    }
+			j++;
+			co++;
+			if(co%tempnode.col==0)//读完一行后，继续读下一行
+			{
+				i++;
+				j=0;
+			}
+		}
+	})
+	)
+   "}")
+    )
+}
+
+
+/*************二维数组赋值（宁林）***************/
+void Array(MyNode tempnode,int row,ArrayList<Integer> list):
+{
+	Record temp;
+	int value;  
+	int i=0;
+	int nr=0;
+	int cl;
+}
+{
+	"{"
+	{
+		if(tempnode.rflag==1&&row>=tempnode.row)//行越界报错
+		{
+			System.out.println("number "+" Row Index out of array!! "+tempnode.name+" error......");
+			System.exit(12);
+		}
+	}
+	temp=Factor()//常数 | 字符串（ “[”  常数  ”]” ）*
+
+	{
+	    if(tempnode.cflag==1&&nr>=tempnode.col)
+	    {
+			System.out.println("number "+" Col Index out of array!! "+tempnode.name+" error......");
+			System.exit(12);
+	    }
+	    nr++;
+		value=Integer.parseInt(temp.getValue());
+		list.add(value);
+	}
+(","temp=Factor()//常数 | 字符串（ “[”  常数  ”]” ）*
+
+	{
+		
+	    if(tempnode.cflag==1&&nr>=tempnode.col)//列越界报错
+	    {
+			System.out.println("number "+" Col Index out of array!! "+tempnode.name+" error......");
+			System.exit(12);
+	    }
+	    nr++;
+		value=Integer.parseInt(temp.getValue());
+		list.add(value);
+	}
+	)*
+	{
+		if(tempnode.cflag==0)
+		{
+		   tempnode.cflag=1;
+		   tempnode.col = nr;
+		}
+	}
+    "}"
+}
+
+
+/********读取值（包括常数、变量、数组的一个元素、表达式）（宁林）********/
+//Record：封装name、value信息，在语义分析过程中作为临时变量使用
+//Factor（）——>常数 | 字符串（ “[”  常数  ”]” ）*
+//Factor表示把一个整数，变量，常量，表达式或数组转换成为一个Record类，
+//该类存在两个变量name和value。name存储名字，value存值
+Record Factor():
+{
+	String name,value="";  
+	Token node;
+	int D=0;
+	MyNode tempnode;
+	int row=-1,col=-1;
+	int rl,cl;
+	String temp="",lon="";
+	Record r;
+}
+{
+	(node=<CONSTANT>//常数
+	{
+		name=node.image;
+		value=node.image;
+		return new Record(name,value);
+	})
+	| "("r=Expression()")"{//表达式
+		return r;
+		}
+	|(node=<IDENTIFIER>//标识符
+	{
+		name=node.image;
+		tempnode=myNodeList.getNode(name);//从符号表里找到name变量，并把name的全部信息赋给tempnode变量
+	}
+	("["node=<CONSTANT>
+	{
+		D++;
+		if(D==1)
+		{
+		    row=Integer.parseInt(node.image);//把整型对象Integer转换成基本数据类型int。
+		}
+		else if(D==2)
+		{
+			col=Integer.parseInt(node.image);			
+		}
+	}
+	"]")*
+	{
+		
+		if(D==1) 
+		{
+	  	    if(!myNodeList.isExientence(name)||(myNodeList.getNode(name)).D!=1)
+		   {
+			System.out.println("number "+node.beginLine+" Array "+name+" is undefined!!error......");// 数组没有定义，报错
+			System.exit(1);
+		   }	
+		   if(row>=tempnode.row)
+		   {
+			   System.out.println("number "+node.beginLine+" Index out of array!! "+name+" error......");//越界报错
+			   System.exit(12);
+			}
+//四元式
+		   value=tempnode.a[row]+"";
+		   temp="T"+(ncount);
+		   ncount++;
+		   count++;
+		   sysList.addSys(new Sys(count,"*",row+"",4+"",temp));//获取数组的入口地址
+		   lon=temp;
+			temp="T"+ncount;
+			ncount++;
+			count++;
+		    sysList.addSys(new Sys(count,"=[]",name+"["+lon+"]","-",temp));//变址取数
+		}
+		else if(D==2)  
+		{
+		    if(!myNodeList.isExientence(name)||(myNodeList.getNode(name)).D!=2)
+		   {
+			System.out.println("number "+node.beginLine+" Array "+name+" is undefined!!error......");
+			System.exit(1);
+		   }
+		    if(row>=tempnode.row)
+			{
+			   System.out.println("number "+node.beginLine+" Row Index out of array!! "+name+" error......");
+			   System.exit(12);
+			}
+			if(col>=tempnode.col)
+			{
+			   System.out.println("number "+node.beginLine+" Col Index out of array!! "+name+" error......");
+			   System.exit(12);
+			}
+			value=tempnode.b[row][col]+"";
+			cl=tempnode.col;//c1表示二维数组的列长度
+	     	temp="T"+(ncount);//临时变量下标，初始值为0
+		    ncount++;
+		    count++;//四元式标号
+		    sysList.addSys(new Sys(count,"*",row+"",cl+"",temp));//获取数组的入口地址
+		    lon=temp;//一个标记
+		    temp="T"+(ncount);
+		    ncount++;
+		    count++;
+		    sysList.addSys(new Sys(count,"+",lon,col+"",temp));//更新temp标记
+		    lon=temp;//一个标记
+		    temp="T"+(ncount);
+		    ncount++;
+		    count++;
+		    sysList.addSys(new Sys(count,"*",lon,4+"",temp));//找到位置
+		    lon=temp;
+			temp="T"+ncount;
+			ncount++;
+			count++;
+		    sysList.addSys(new Sys(count,"=[]",name+"["+lon+"]","-",temp)); //变址取数
+
+		}
+		else if(D==0)
+		{
+			 if(!myNodeList.isExientence(name)||(myNodeList.getNode(name)).D!=0)
+		    {
+			System.out.println("number "+node.beginLine+" variable "+name+" is undefined!!error......");
+			System.exit(1);
+		   }
+		  value=tempnode.result+"";
+		}
+	}
+	{
+		if(tempnode.D==0)
+		{//常数
+			return new Record(tempnode.name,value);
+		}
+		else
+		{//数组
+			return new Record(temp,value);  //返回数组的temp和值
+		}
+	})
+}
+
+
+/**************赋值语句（王鹤淳）*************/
+void assignment() :
+{
+	Token t;
+	Token id;
+	Token node;
+	String idenfier; //被赋值对象
+	Record middle;
+	String symbol;
+	int result;
+	MyNode tempnode=null;//符号表结点对象
+
+}
+{
+	(
+	id=<IDENTIFIER>//标识符
+	{
+		idenfier=id.image;
+		if(!myNodeList.isExientence(idenfier)){
+				System.out.println("variable \""+idenfier+"\" not exists,you cant use it,error......"
+				+"\nworng number "+id.beginLine);
+				System.exit(-1);
+			}
+		tempnode=myNodeList.getNode(idenfier);//获取对象的引用
+		if(tempnode.type=="char"|tempnode.type=="short"){
+			System.out.println("variable type is not  right,error......"
+				+"\nworng number "+id.beginLine);
+				System.exit(-1);
+		}
+	}
+	((<ASSIGNMENT>middle=Expression()
+	{
+		count++;
+		sysList.addSys(new Sys(count,":=",middle.getName(),"_",idenfier));
+		tempnode.result=Integer.parseInt(middle.getValue());
+
+		
+	})
+	|((node=<PLUS>|node=<MINUS>|node=<MULTIPLY>|node=<DIVIDE>|node=<REMAINDER>)
+	{
+		symbol=node.image;
+	}
+	<ASSIGNMENT>middle=Expression()
+	{
+		count++;
+		sysList.addSys(new Sys(count,symbol,idenfier,middle.getName(),idenfier));
+		if(symbol.equals("+")){
+			tempnode.result+=Integer.parseInt(middle.getValue());//更新数值
+		}else if(symbol.equals("-")){
+			tempnode.result+=Integer.parseInt(middle.getValue());//更新数值
+		}else if(symbol.equals("*")){
+			tempnode.result*=Integer.parseInt(middle.getValue());//更新数值
+		}else{
+			tempnode.result/=Integer.parseInt(middle.getValue());//更新数值
+		}
+		
+
+	})
+	|(<SELFPLUS>
+	{
+		count++;
+		sysList.addSys(new Sys(count,"+",idenfier,"1",idenfier));
+		tempnode.result+=1;//更新数值
+
+	})
+	|(<SELFMINUS>{
+		count++;
+		tempnode.result-=1;//更新数值
+		sysList.addSys(new Sys(count,"-",idenfier,"1",idenfier));
+
+	}))
+	(";"|","))
+|	(<SELFPLUS> id=<IDENTIFIER>
+	{
+		idenfier=id.image;
+		count++;
+		sysList.addSys(new Sys(count,"+",idenfier,"1",idenfier));
+	}
+	";")
+|	(<SELFMINUS> id=<IDENTIFIER>
+	{
+		idenfier=id.image;
+		count++;
+		sysList.addSys(new Sys(count,"-",idenfier,"1",idenfier));
+	}
+	";")
+}
+
+/***************if语句（郝金强）****************/
+void If():{
+   int j1, j2=0, j3;
+} 
+{
+  <IF><LC>
+   Condition()<RC>//将if的条件为真时的语句写入四元式
+  {
+   count++;
+   j1=count;
+   sysList.addSys(new Sys(count,"J","_","_",String.valueOf(j1)+"#"));//if假出口，target用j1#代替
+   }
+   //if语句块
+   SentenceBlock()//if真出口，填写if条件成立时的语句四元式
+  
+{
+  
+   count++;
+   sysList.addSys(new Sys(count,"J","_","_",String.valueOf(j2)+"#"));//所有语句执行完毕之后，添加跳转语句，target用J2#代替
+   sysList.replaceFirst(String.valueOf(j1)+"#",String.valueOf(count+1)+"");
+  //将数回填到刚才if的假出口，将j1#用count+1替换
+   }
+
+(
+   LOOKAHEAD(1)
+<ELSEIF><LC>Condition()<RC>//将else的条件成立时的语句，写入四元式
+  {
+   count++;
+   j3=count;
+   sysList.addSys(new Sys(count,"J","_","_",String.valueOf(j3)+"#"));//else假出口,target用j3#代替
+   }
+   SentenceBlock()//elseif的真出口，填写elseif条件为真的语句四元式
+{
+   count++;
+       sysList.addSys(new Sys(count,"J","_","_",String.valueOf(j2)+"#"));//else里的所有语句执行完毕之后，添加跳转四元式，target用J2#代替
+   sysList.replaceFirst(String.valueOf(j3)+"#",String.valueOf(count+1)+"");//回填到elseif的假出口，将j3#用count+1代替
+   }
+   )*
+  (
+    LOOKAHEAD(1)
+    <ELSE>
+   SentenceBlock()//填写else条件成立时的每一条语句的四元式
+  )?
+  {
+  sysList.replaceAll(String.valueOf(j2)+"#",String.valueOf(count+1)+"");//将所有的无条件跳转语句块的j2#替换为当前的count+1
+  }
+  //程序结束
+}
+
+/*************switch条件语句（郝金强）***********/
+void Switch():
+{
+Token node;
+int j1=0;
+int j2;
+int next;
+Record idenfier;//标识符
+Record con;
+}
+{
+<SWITCH>{j2=-1;}
+<LC>
+idenfier=Expression()
+<RC>
+<LB>(
+<CASE>
+{
+	sysList.replaceFirst(String.valueOf(j1)+"#",String.valueOf(count+1));
+}
+con=Expression()
+{
+	count++;
+	next=count+1;
+	sysList.addSys(new Sys(count,"J=",idenfier.getName(),con.getName(),String.valueOf(next+1)));
+	count++;
+	j1=count;
+	sysList.addSys(new Sys(count,"J","_","_",String.valueOf(j1)+"#"));//假出口，target用j1#标记
+}
+<COLON> SentenceBlock()//填写语句块里所有语句的四元式
+{
+	count++;
+	sysList.addSys(new Sys(count,"J","_","_",String.valueOf(j2)+"#"));//跳转，target用j2#标记
+}
+<BREAK>";"
+)+<DEFAULT1>
+{
+	sysList.replaceFirst(String.valueOf(j1)+"#",String.valueOf(count+1));//回填，将j1#用当前count+1替换
+	next=count+1;
+}
+<COLON>SentenceBlock()<BREAK>//填写default后的语句
+{
+	count++;
+	sysList.addSys(new Sys(count,"J","_","_",String.valueOf(count+1)));//结束语句
+}";"
+<RB>
+{
+	sysList.replaceAll(String.valueOf(j2)+"#",String.valueOf(count+1)+"");//回填，将所有的j2#用当前的count+1替换
+}
+}
+
+/***********do_while语句（程虹翔）************/
+void  do_while():
+{
+	Token node;
+	int next;
+	int dofirst;
+}
+{
+	<DO>
+	{
+		//记住do的第一个语句
+  		dofirst=count+1;
+	}
+	SentenceBlock()
+   <WHILE><LC>
+    While_Condition()
+   {
+    	//条件成立跳转到循环体的第一条语句
+   		sysList.replaceAll("-2#",String.valueOf(dofirst));
+   }
+   <RC>";"
+   {
+  		next=count+1;
+	  	//所有条件不成立跳出循环体即下一条语句
+	  	sysList.replaceAll("0#",String.valueOf(next));
+   }
+}
+
+/**************while语句（程虹翔）*************/
+void While():
+{
+  Token node;
+  int j1;
+  int j2;
+  int next;
+  int next1;
+  int wh;
+}
+{
+  <WHILE><LC>
+  {
+  	next1=count+1;
+  }
+  While_Condition()<RC>
+  {
+  	wh=count+1;	
+  	//进入循环体
+  	sysList.replaceAll("-2#",String.valueOf(wh));
+  	//将while条件不成立的做一个标记
+  	sysList.replaceAll("0#",String.valueOf(wh)+"&");
+  }
+  SentenceBlock()
+  {	
+  	count++;
+  	next=count+1;
+  	sysList.replaceAll(String.valueOf(wh)+"&",String.valueOf(next));
+  	//循环结束跳转返回判断条件是否成立
+  	sysList.addSys(new Sys(count,"J","_","_",String.valueOf(next1)));
+  }
+}
+
+/**********while中的条件判断语句（王鹤淳）**********/
+void While_Condition():
+{
+  Token node;
+  Record result;
+  Record middle;
+  int j=0;
+  int j1;
+  int j2;
+  int j3=-2;
+  String symbol;
+}
+{
+  result=Expression()
+  ((node=<LOWER>|node=<GREAT>|node=<GREATE>|node=<LOWERW>|node=<EQUAL>|node=<UNEQUAL>)
+  {
+  	symbol=node.image;
+  }
+   middle=Expression()
+  {
+  	count++;
+    con=count;
+  	sysList.addSys(new Sys(count,"j"+symbol,result.getName(),middle.getName(),String.valueOf(con)+"#"));	
+  	count++;
+	sysList.addSys(new Sys(count,"j","_","_",String.valueOf(j)+"#"));	
+  }
+	)
+  (<AND>
+  {
+  	//继续判断
+  	j1=count+1;
+  	sysList.replaceFirst(String.valueOf(con)+"#",String.valueOf(j1));
+  }
+  While_Condition())*
+  {
+  	//条件成立做一个标记
+  	sysList.replaceFirst(String.valueOf(con)+"#",String.valueOf(j3)+"#");
+  }
+  (<OR>
+  {
+  	//and条件都不成立的话跳转到or
+  	j2=count+1;
+  	sysList.replaceAll(String.valueOf(j)+"#",String.valueOf(j2));
+  }
+  While_Condition())*
+  
+}
+
+/***************for循环语句（杨帅）******************/
+void For():
+{	
+	 int j1;
+	 int j2;
+ 	 Token node=null,node1=null;
+}
+{
+	<FOR><LC>	
+    assignment(){j1=count+1;}//Assignment是赋值语句，j1表示标记for语句的第2条语句，不能count++,
+    //因为要保证在无条件跳转语句,可以跳回for的第一条语句，count是全局变量
+	While_Condition()//条件判断语句
+	{//写两条四元式
+		j++;
+		sysList.replaceAll("-2#",j+"-2#");//真出口，替换所有，把-2#替换为1-2#
+  		sysList.replaceAll("0#",j+"0#");//假出口，替换所有，把0#替换为10#
+		j2=count+1;
+	}
+	";"//中间的分号
+	//暂不执行++或--的语义分析
+	((node=<IDENTIFIER>(node1=<SELFPLUS>|node1=<SELFMINUS>))|",")+//标识符++或--,最少有一个（“+”表示此含义）
+	<RC> //右括号
+	SentenceBlock()//语句块语句
+	{//写语句块语句的四元式	
+	{//执行++或--
+		count++;//对四元式序号的操作
+		if(node1.image=="++"){
+		sysList.addSys(new Sys(count,"+",node.image,"1",node.image));
+		}//添加一条四元式，函数里的参数是一个sys对象，new新建一条四元式，类里面也有5个参数，
+		          //count是四元式标号，++的四元式相当于是+1的那种四元式
+		else{
+		sysList.addSys(new Sys(count,"-",node.image,"1",node.image));
+		}
+		count++;//标号+1
+		sysList.addSys(new Sys(count,"j","_","_",String.valueOf(j1)));//无条件跳转语句	
+	}
+  		sysList.replaceAll(j+"-2#",String.valueOf(j2));//替换j2的值
+  		sysList.replaceAll(j+"0#",String.valueOf(count+1));//替换语句，-2#代表真出口，0#代表假出口
+  		                                                   //替换count+1的值
+  		j--;
+	}
+}
+
+
+
+
+
+/*************条件判断语句（程虹翔）**************/
+int Condition():
+{
+  Token node;
+  int next;
+  Record result;
+  Record middle;
+}
+{
+	//	Expression()(Relate() Expression())
+  result=Expression()
+  (node=<LOWER> middle=Expression()
+  {
+  	count++;
+  	next=count+1;
+  	sysList.addSys(new Sys(count,"j<",result.getName(),middle.getName(),String.valueOf(next+1)));
+  }
+  | node=<GREAT> middle=Expression()
+  {
+  	count++;
+  	next=count+1;
+  	sysList.addSys(new Sys(count,"j>",result.getName(),middle.getName(),String.valueOf(next+1)));
+  }
+  | node=<GREATE> middle=Expression()
+  {
+  	count++;
+  	next=count+1;
+  	sysList.addSys(new Sys(count,"j>=",result.getName(),middle.getName(),String.valueOf(next+1)));
+  }
+  | node=<LOWERW> middle=Expression()
+  {
+  	count++;
+  	next=count+1;
+  	sysList.addSys(new Sys(count,"j<=",result.getName(),middle.getName(),String.valueOf(next+1)));
+  }
+  | node=<EQUAL> middle=Expression()
+  {
+  	count++;
+  	next=count+1;
+  	sysList.addSys(new Sys(count,"j=",result.getName(),middle.getName(),String.valueOf(next+1)));
+  }
+  | node=<UNEQUAL> middle=Expression()
+  {
+  	count++;
+  	next=count+1;
+  	sysList.addSys(new Sys(count,"j!=",result.getName(),middle.getName(),String.valueOf(next+1)));
+  }) 
+   {
+  	return next;
+  }
+}
+
+/*****************加减运算表达式（郝金强）*****************/
+Record Expression() : //表达式的值，只处理加减运算的值                            
+{
+  Token node;
+  Record rValue;//存储前一个Term()信息
+  Record middleR;//存储后一个Term()信息
+  String result=null;//前一个Term()的值
+  String middle=null;//后一个Term()的值
+  String middletemp=null;//后一个Term()的名称
+  String temp="";//前一个Term()的名称
+  String preStr=null;
+  String pretem="";//第一个临时变量名称 
+  int perStep=0;//记录在一个函数中深入几步                      
+}
+{
+  rValue=Term()//读取前一个Term()
+  {
+   	temp=rValue.getName();
+  	result=rValue.getValue();
+  }
+  (<PLUS> 
+  {
+  	if(preStr!=null){
+  		pretem="T"+(ncount-1);//前一个临时变量
+  	}	
+  }
+  middleR=Term(){//读取后一个Term()
+  	middletemp=middleR.getName();
+  	middle=middleR.getValue();
+  	count++;//四元式下标自增
+  	temp="T"+(ncount);//临时变量
+  	//为下一个临时变量做准备
+  	ncount++;
+  	if(preStr==null){
+  		sysList.addSys(new Sys(count,"+",rValue.getName(),middletemp,temp));
+  		
+  	}else{
+  		//把开始值和中间值放在临时变量里
+  		sysList.addSys(new Sys(count,"+",pretem,middletemp,temp));
+  	}
+  	//存储计算结果的值
+  	result=Integer.parseInt(result)+Integer.parseInt(middle)+"";
+  	preStr=temp;
+  }
+  | <MINUS>
+   {
+  	if(preStr!=null){
+  		pretem="T"+(ncount-1);
+  	}	
+  }
+  middleR=Term(){
+ 	middletemp=middleR.getName();
+  	middle=middleR.getValue();
+  	count++;
+  	temp="T"+ncount;
+  	ncount++;
+  	if(preStr==null){
+  		//把开始值和中间值放在临时变量里
+  		sysList.addSys(new Sys(count,"-",rValue.getName(),middletemp,temp));
+  	}else{
+  		//把开始值和中间值放在临时变量里
+  		sysList.addSys(new Sys(count,"-",pretem,middletemp,temp));
+  	}
+  	result=Integer.parseInt(result)-Integer.parseInt(middle)+"";
+  	preStr=temp;
+  }
+
+  )*
+  { 	
+  	rValue=new Record(temp,result);
+  	return rValue;//最后返回表达式的值即可
+  	
+  }
+}
+
+/*************乘除运算表达式（宁林）************/
+Record Term() : //term为乘除运算的值
+{
+  Token node;
+  Record rValue=null;//存储前一个Term()信息
+  Record MiddleR=null;//存储后一个Term()信息
+  String result;//前一个Term()的值
+  String middle;//后一个Term()的值
+  String middletemp;
+  String middleName;
+  String temp="";
+  String symbol="";//运算符
+  String preStr=null;
+  String pretem=null;
+}
+{
+  rValue=Factor() 
+  {
+  	temp=rValue.getName();
+  	result=rValue.getValue();
+  }
+  (
+    ((node=<MULTIPLY>|node=<DIVIDE>|node=<REMAINDER>)
+    {
+    	symbol=node.image;
+    }
+    {
+      	if(preStr!=null){
+  		pretem="T"+(ncount-1);
+      	}
+  	}	
+    MiddleR= Factor()
+      {
+      	middletemp=MiddleR.getName();
+      	middle=MiddleR.getValue();
+    	count++;
+  	    temp="T"+ncount;
+  	    ncount++;
+  	    if(preStr==null){
+  		
+  			//把开始值和中间值放在临时变量里
+  			sysList.addSys(new Sys(count,symbol,rValue.getName(),middletemp,temp));
+  		}else{
+  			//把开始值和中间值放在临时变量里
+  			sysList.addSys(new Sys(count,symbol,pretem,middletemp,temp));
+  		}
+  	    result=Integer.parseInt(result)*Integer.parseInt(middle)+"";
+  	    preStr=temp;
+      }    
+     ) 
+  )*
+  {
+  	rValue=new Record(temp,result);
+  	return rValue;
+  }
+}
+
+/***********类型定义（集体）************/
+String Type():
+{
+Token node;
+String type;
+}
+{
+	(node=<FLOAT>
+	|node=<LONG>
+	|node=<INT>
+	|node=<SHORT>
+	|node=<CHAR>
+	|node=<DOUBLE>)
+	{
+	  type=node.image;	 
+	  return type; 
+	}
+}
+
+/***********头文件（集体）************/
+void Head():{}
+{
+	<IO>
+|	<LIB>
+|	<MATH>
+|   <TIME>
+|	<STRING>
+}

@@ -1,0 +1,11 @@
+Start
+ Procedure
+  SentenceBlock
+   Statement
+    declaration
+     Type
+     Assign
+      Factor
+   Statement
+    declaration
+     Type
